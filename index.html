@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Setor Gmail Angkasa</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet" />
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: "Inter", sans-serif; }
+    body { background: #0f172a; color: #fff; display: flex; flex-direction: column; align-items: center; min-height: 100vh; padding-bottom: 60px; }
+    .container { margin-top: 80px; background: #1e293b; padding: 30px; border-radius: 16px; box-shadow: 0 0 20px rgba(0,0,0,0.4); width: 90%; max-width: 420px; }
+    h2 { text-align: center; margin-bottom: 20px; font-weight: 600; }
+    input { width: 100%; padding: 12px; border: none; border-radius: 8px; margin: 8px 0; background: #334155; color: #fff; }
+    button { width: 100%; padding: 12px; border: none; border-radius: 8px; background: #3b82f6; color: #fff; font-weight: 600; cursor: pointer; transition: 0.2s; }
+    button:hover { background: #2563eb; }
+    .card { background: #1e293b; border-radius: 12px; padding: 20px; margin-top: 16px; text-align: center; }
+    .logout { margin-top: 12px; background: #ef4444; }
+    .hidden { display: none; }
+    .stat { display: flex; justify-content: space-between; margin: 8px 0; }
+    .stat strong { color: #38bdf8; }
+    #loading { margin-top: 20px; text-align: center; font-size: 14px; color: #94a3b8; }
+
+    #modalSetor {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.6);
+      display: none; align-items: center; justify-content: center;
+      z-index: 10; opacity: 0; transition: opacity 0.3s ease;
+    }
+    #modalSetor.show { display: flex; opacity: 1; }
+    .modal-content {
+      background: #1e293b; padding: 20px; border-radius: 12px;
+      width: 90%; max-width: 380px; text-align: center;
+      box-shadow: 0 0 15px rgba(0,0,0,0.4);
+      transform: scale(0.9); transition: transform 0.3s ease;
+    }
+    #modalSetor.show .modal-content { transform: scale(1); }
+    .modal-content h3 { margin-bottom: 10px; }
+    .close { background: #ef4444; margin-top: 10px; }
+
+    /* === MODAL ERROR === */
+    #modalError {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.5); display: none;
+      align-items: center; justify-content: center; z-index: 999;
+    }
+    #modalError.show { display: flex; animation: fadeIn 0.3s ease forwards; }
+    .modal-error-content {
+      background: #1e293b; padding: 25px 30px; border-radius: 12px;
+      text-align: center; box-shadow: 0 0 20px rgba(0,0,0,0.4);
+      animation: fadeInUp 0.3s ease;
+    }
+    .modal-error-content h3 { color: #ef4444; margin-bottom: 6px; }
+    .modal-error-content p { color: #cbd5e1; font-size: 14px; }
+    @keyframes fadeIn { from {opacity: 0;} to {opacity: 1;} }
+    @keyframes fadeInUp { from {transform: translateY(20px); opacity: 0;} to {transform: translateY(0); opacity: 1;} }
+
+    h1 { text-align: center; margin-top: 30px; margin-bottom: 15px; color: #38bdf8; font-weight: 600; }
+    .panduan {
+      background: #1e293b;
+      border-radius: 12px;
+      width: 90%;
+      max-width: 420px;
+      margin-top: 10px;
+      padding: 10px 20px;
+      text-align: justify;
+      box-shadow: 0 0 15px rgba(0,0,0,0.3);
+    }
+    .panduan-item {
+      border-bottom: 1px solid #334155;
+      cursor: pointer;
+      padding: 10px 0;
+    }
+    .panduan-item:last-child { border-bottom: none; }
+    .panduan-item h3 {
+      color: #93c5fd;
+      font-weight: 600;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .panduan-item h3 span.arrow {
+      font-size: 14px;
+      transition: transform 0.3s ease;
+    }
+    .panduan-item.active h3 span.arrow {
+      transform: rotate(180deg);
+    }
+    .panduan-content {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.4s ease, opacity 0.3s ease;
+      opacity: 0;
+    }
+    .panduan-item.active .panduan-content {
+      max-height: 500px;
+      opacity: 1;
+      margin-top: 8px;
+    }
+
+    footer {
+      position: fixed; bottom: 0; width: 100%;
+      background: #1e293b; color: #94a3b8;
+      text-align: center; padding: 8px 0;
+      font-size: 13px; border-top: 1px solid #334155;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container" id="login">
+    <h2>🔐 Login Setor Gmail</h2>
+    <h2>By Angkasa</h2>
+    <input type="text" id="username" placeholder="Username" />
+    <input type="password" id="password" placeholder="Password" />
+    <button onclick="login()">Masuk</button>
+    <p id="loading" class="hidden">⏳ Memeriksa akun...</p>
+  </div>
+
+  <div class="container hidden" id="dashboard">
+    <h2>📊 Dashboard Setor Gmail</h2>
+    <div id="info"></div>
+    <div class="card">
+      <h3>📈 Statistik</h3>
+      <div class="stat"><span>Saldo:</span> <strong id="saldo">Rp0</strong></div>
+      <div class="stat"><span>Total Gmail:</span> <strong id="total">0</strong></div>
+      <div class="stat"><span>Convert:</span> <strong id="convert">0</strong></div>
+      <div class="stat"><span>Unconvert:</span> <strong id="unconvert">0</strong></div>
+      <div class="stat"><span>Withdraw:</span> <strong id="withdraw">0</strong></div>
+    </div>
+    <button onclick="openSetor()">📩 Setor Gmail</button>
+    <button class="logout" onclick="logout()">Keluar</button>
+  </div>
+
+<div class="panduan hidden" id="panduan">
+    <div class="panduan-item" onclick="togglePanduan(this)">
+      <h3>💌 Panduan Setor Gmail <span class="arrow">▼</span></h3>
+      <div class="panduan-content">
+        <p>• 𝚆𝙰𝙹𝙸𝙱 𝙹𝙾𝙸𝙽 𝙶𝚁𝙾𝚄𝙿 & 𝙲𝙷𝙰𝙽𝙽𝙴𝙻</p>
+        <p>• 𝙹𝙸𝙺𝙰 𝙾𝚄𝚃 𝙶𝚁𝙾𝚄𝙿 𝙲𝙷𝙰𝙽𝙽𝙴𝙻 𝙰𝙺𝚄𝙽 𝙰𝚄𝚃𝙾 𝙳𝙴𝙻𝙴𝚃𝙴</p>
+        <p>• 𝙶𝙼𝙰𝙸𝙻 𝚆𝙰𝙹𝙸𝙱 𝙵𝚁𝙴𝚂𝙷</p>
+        <p>• 𝙰𝙺𝚄𝙽 𝙶𝙼𝙰𝙸𝙻 𝚆𝙰𝙹𝙸𝙱 𝙽𝙰𝙼𝙰 𝙼𝙰𝙽𝚄𝚂𝙸𝙰</p>
+        <p> m• 𝙰𝙺𝚄𝙽 𝚃𝙸𝙳𝙰𝙺 𝙳𝙸 𝙱𝚄𝙰𝚃 𝙼𝙴𝙽𝙶𝙶𝚄𝙽𝙰𝙺𝙰𝙽 𝙽𝙾𝙼𝙾𝚁 𝙷𝙿</p>
+        <p>• 𝙳𝙸𝙱𝚄𝙰𝚃 𝙳𝙸 𝙰𝙿𝙺 𝙶𝙼𝙰𝙸𝙻 𝙻𝙰𝙽𝙶𝚂𝚄𝙽𝙶</p>
+        <p>• 𝚄𝚂𝙴𝚁𝙽𝙰𝙼𝙴 𝚆𝙰𝙹𝙸𝙱 𝙱𝙴𝙳𝙰 𝚂𝙴𝚃𝙸𝙰𝙿 𝙶𝙼𝙰𝙸𝙻</p>
+        <p>• 𝙿𝙰𝚂𝚂𝚆𝙾𝚁𝙳 𝚆𝙰𝙹𝙸𝙱 "𝙰𝙽𝙶𝙺𝙰𝚂𝙰𝙶𝙼𝙰𝙸𝙻"</p>
+        <p>• 𝙰𝙽𝙶𝙺𝙰 𝙳𝙸𝙱𝙴𝙻𝙰𝙺𝙰𝙽𝙶 𝚄𝚂𝙴𝚁𝙽𝙰𝙼𝙴 𝚆𝙰𝙹𝙸𝙱</p>
+        <p>• 𝙼𝙸𝙽 1 𝙼𝙰𝚇 3 𝙽𝙾𝙼𝙾𝚁 </p>
+        <p>• 𝙰𝙺𝚄𝙽 𝙷𝙰𝙽𝚈𝙰 1 𝙺𝙰𝙻𝙸 𝚂𝙴𝚃𝙾𝚁</p>
+        <p>• 𝙰𝙺𝚄𝙽 𝚆𝙰𝙹𝙸𝙱 𝙳𝙸 𝙻𝙾𝙶𝙾𝚄𝚃</p>
+        <p>• 𝙶𝙴𝙽𝙳𝙴𝚁 𝚆𝙰𝙹𝙸𝙱 𝙼𝙴𝙼𝙸𝙻𝙸𝙷 𝚃𝙸𝙳𝙰𝙺 𝙼𝙴𝙱𝙴𝚁𝙸𝚃𝙰𝙷𝚄</p>
+        <p>• 𝚃𝙰𝙷𝚄𝙽 𝚆𝙰𝙹𝙸𝙱 2000 - 1950</p>
+        <p>• 𝚆𝙴𝙱𝚂𝙸𝚃𝙴 𝚃𝙸𝙳𝙰𝙺 𝙰𝙺𝙰𝙽 24 𝙹𝙰𝙼 𝙰𝙺𝙰𝙽 𝙰𝙳𝙰 𝙲𝙻𝙾𝚂𝙴 𝙾𝙿𝙴𝙽 𝙽𝚈𝙰</p>
+        <p>• 𝙿𝙴𝙽𝙶𝚄𝙼𝙿𝚄𝙻𝙰𝙽 𝚃𝙸𝙳𝙰𝙺 𝙰𝙳𝙰 𝙱𝙰𝚃𝙰𝚂</p>
+        <p>• 𝙳𝙸𝙻𝙰𝚁𝙰𝙽𝙶 𝚄𝙱𝙰𝙷 𝙿𝙰𝚂𝚂𝚆𝙾𝚁𝙳</p>
+        <p>• 𝙳𝙸𝙻𝙰𝚁𝙰𝙽𝙶 𝚂𝙴𝚃𝙾𝚁 𝙰𝙺𝚄𝙽 𝚈𝙰𝙽𝙶 𝙿𝙴𝚁𝙽𝙰𝙷 𝙳𝙸 𝚂𝙴𝚃𝙾𝚁𝙺𝙰𝙽</p>
+        <p>• 𝙳𝙸𝙱𝚄𝙰𝚃 𝚆𝙰𝙹𝙸𝙱 𝙼𝙰𝙽𝚄𝙰𝙻 𝚃𝙸𝙳𝙰𝙺 𝙼𝙴𝙽𝙶𝙶𝚄𝙽𝙰𝙺𝙰𝙽 𝚁𝙾𝚃/𝙱𝙾𝚃 𝙳𝙻𝙻</p>
+        <p>• 𝙽𝙰𝙼𝙰 𝚃𝙸𝙳𝙰𝙺 𝙼𝙴𝙽𝙶𝙰𝙽𝙳𝚄𝙽𝙶 𝚄𝙽𝚂𝚄𝚁 𝚂𝙰𝚁𝙰 𝙰𝚃𝙰𝚄 𝙿𝙴𝙻𝙴𝙲𝙴𝙷𝙰𝙽</p>
+        <p>• 𝙲𝙾𝙽𝚃𝙾𝙷 𝙱𝙴𝙽𝙰𝚁 : azharmaulana71@gmail.com, julaihabadriah9@gmail.com</p>
+        <p>• 𝙲𝙾𝙽𝚃𝙾𝙷 𝚂𝙰𝙻𝙰𝙷 : anjaywhhwwi@gmail.com, azharwe@gmail.com</p>
+        <p>• 𝙲𝙾𝙽𝚃𝙾𝙷 𝚂𝙰𝙻𝙰𝙷 𝙱𝙴𝚁𝚄𝚁𝚄𝚃𝙰𝙽 : angkasa1@gmail.com, angkasa2@gmail.com</p>
+      </div>
+    </div>
+
+    <div class="panduan-item" onclick="togglePanduan(this)">
+      <h3>💰 Panduan Tarik Saldo <span class="arrow">▼</span></h3>
+      <div class="panduan-content">
+        <p>• 𝚄𝙽𝚃𝚄𝙺 𝚃𝙰𝚁𝙸𝙺 𝚂𝙰𝙻𝙳𝙾 𝙱𝙸𝚂𝙰 𝙳𝙴𝙽𝙶𝙰𝙽 𝙺𝙴𝚃𝙸𝙺 :</p>
+        <p>• /𝚂𝚃𝙰𝚁𝚃 𝙳𝙸 @supergmailangkasabot</p>
+        <p>• 𝙿𝙸𝙻𝙸𝙷 𝚃𝙾𝙼𝙱𝙾𝙻 𝙲𝙾𝙽𝚅𝙴𝚁𝚃</p>
+        <p>• 𝙼𝙰𝚂𝚄𝙺𝙰𝙽 𝙹𝚄𝙼𝙻𝙰𝙷 𝙶𝙼𝙰𝙸𝙻 𝚈𝙰𝙽𝙶 𝙸𝙽𝙶𝙸𝙽 𝙳𝙸 𝙲𝙾𝙽𝚅𝙴𝚁𝚃 𝙺𝙴 𝚁𝚄𝙿𝙸𝙰𝙷</p>
+        <p>• 𝙿𝙸𝙻𝙸𝙷 𝚃𝙾𝙼𝙱𝙾𝙻 𝚃𝙰𝚁𝙸𝙺 </p>
+        <p>• 𝙼𝙰𝚂𝚄𝙺𝙰𝙽 𝙽𝙾𝙼𝙸𝙽𝙰𝙻 𝚈𝙰𝙽𝙶 𝙸𝙽𝙶𝙸𝙽 𝙳𝙸 𝚃𝙰𝚁𝙸𝙺</p>
+        <p>• 𝙼𝙰𝚂𝚄𝙺𝙰𝙽 𝙽𝙾𝙼𝙾𝚁 𝚁𝙴𝙺𝙴𝙽𝙸𝙽𝙶 𝙳𝙰𝙽𝙰/𝙶𝙾𝙿𝙰𝚈</p>
+        <p>• 𝚃𝚄𝙽𝙶𝙶𝚄 𝙾𝚆𝙽𝙴𝚁 𝚄𝙽𝚃𝚄𝙺 𝙿𝙴𝙽𝙶𝙴𝙲𝙴𝙺𝙰𝙽 𝙶𝙼𝙰𝙸𝙻</p>
+        <p>• 𝙹𝙸𝙺𝙰 𝙰𝙳𝙰 𝙶𝙼𝙰𝙸𝙻 𝙲𝙰𝙲𝙰𝚃 𝙰𝙺𝚄𝙽 𝙳𝙸 𝙺𝚄𝚁𝙰𝙽𝙶 𝙹𝚄𝙼𝙻𝙰𝙷 𝙶𝙼𝙰𝙸𝙻</p>
+        <p>• 𝙼𝙸𝚂𝙰𝙻 : 20 𝙰𝙺𝚄𝙽 𝚈𝙰𝙽𝙶 𝙶𝙰𝙺 𝙱𝙸𝚂𝙰 𝙻𝙾𝙶𝙸𝙽 2, 𝙹𝙰𝙳𝙸 18 𝚇 300 = 𝚁𝙿5.400</p>
+        <p>• 𝚄𝙽𝚃𝚄𝙺 𝙿𝙴𝙽𝙰𝚁𝙸𝙺𝙰𝙽 𝚆𝙰𝙺𝚃𝚄 𝙰𝙺𝙰𝙽 𝙳𝙸 𝚃𝙴𝙽𝚃𝚄𝙺𝙰𝙽 𝙾𝙻𝙴𝙷 𝙾𝚆𝙽𝙴𝚁</p>
+        <p>• 𝙹𝙸𝙺𝙰 𝙿𝙴𝙽𝙶𝙴𝙲𝙴𝙺𝙰𝙽 𝙱𝙴𝚁𝙷𝙰𝚂𝙸𝙻 𝙾𝚆𝙽𝙴𝚁 𝙰𝙺𝙰𝙽 𝚃𝚁𝙰𝙽𝚂𝙵𝙴𝚁</p>
+        <p>• 𝚄𝙽𝚃𝚄𝙺 𝙲𝙾𝙽𝚅𝙴𝚁𝚃 𝙳𝙰𝚁𝙸 1 𝙰𝙺𝚄𝙽 1 𝚇 300𝙿</p>
+      </div>
+    </div>
+  </div>
+
+  <div id="modalSetor">
+    <div class="modal-content">
+      <h3>📤 Setor Gmail</h3>
+      <input type="text" id="gmail" placeholder="Email Gmail" />
+      <input type="password" id="gmailPass" placeholder="Password Gmail" />
+      <button onclick="kirimSetor()">Kirim</button>
+      <button class="close" onclick="closeSetor()">Batal</button>
+      <p id="statusSetor" style="font-size:13px;color:#9ca3af;margin-top:10px"></p>
+    </div>
+  </div>
+
+  <div id="modalError">
+    <div class="modal-error-content">
+      <h3>❌ Login Gagal</h3>
+      <p>Username atau password salah!</p>
+    </div>
+  </div>
+
+  <footer>© 2025 Super Setor Gmail Angkasa</footer>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyBnd_oT956r-6qOfy3tmOeG94-XsQd9WSY",
+      authDomain: "database-super.firebaseapp.com",
+      projectId: "database-super",
+      storageBucket: "database-super.firebasestorage.app",
+      messagingSenderId: "241219754589",
+      appId: "1:241219754589:web:77674efdd4597eb7968bb4",
+      measurementId: "G-4ML339N7Q0"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    const BOT_TOKEN = "8534291925:AAGZIdtyDA6X8wJyC4JUuaaA2Km8bq5hnRQ";
+    const OWNER_ID = "6736986837";
+    const formatRupiah = n => 'Rp' + (Number(n)||0).toLocaleString('id-ID');
+
+    function togglePanduan(el) {
+      el.classList.toggle('active');
+    }
+
+    function showError(msg){
+      const modal=document.getElementById('modalError');
+      modal.querySelector('p').textContent=msg;
+      modal.classList.add('show');
+      setTimeout(()=>modal.classList.remove('show'),2000);
+    }
+
+    async function login(){
+      const u=document.getElementById('username').value.trim();
+      const p=document.getElementById('password').value.trim();
+      const loading=document.getElementById('loading');
+      if(!u||!p)return showError("Isi username & password!");
+      loading.classList.remove('hidden');
+      const snap=await db.collection('users').where('username_login','==',u).where('password_login','==',p).limit(1).get();
+      loading.classList.add('hidden');
+      if(snap.empty)return showError("Username atau password salah!");
+      const doc=snap.docs[0];
+      const user=doc.data();
+      localStorage.setItem('uid', doc.id);
+      localStorage.setItem('user', JSON.stringify({ ...user, id: doc.id }));
+      showDashboard(user);
+    }
+
+    function showDashboard(user) {
+      document.getElementById("login").classList.add("hidden");
+      document.getElementById("dashboard").classList.remove("hidden");
+
+      const uid = user.id || localStorage.getItem("uid");
+      if (!uid) return alert("Gagal memuat data user (UID kosong)");
+
+      const info = document.getElementById("info");
+      info.innerHTML = `<p>👋 Halo <strong>${user.username_login || "-"}</strong> (@${user.username_tele || "-"})</p>`;
+
+      db.collection("users").doc(String(uid)).onSnapshot((doc) => {
+        if (!doc.exists) return;
+        const u = doc.data();
+        document.getElementById("saldo").textContent = formatRupiah(u.saldo || 0);
+        document.getElementById("total").textContent = u.emails_total || 0;
+        document.getElementById("convert").textContent = u.emails_converted || 0;
+        document.getElementById("unconvert").textContent = u.emails_unconverted || 0;
+        document.getElementById("withdraw").textContent = u.withdraw_count || 0;
+        document.getElementById("panduan").classList.remove("hidden");
+      });
+    }
+
+    function logout(){
+      localStorage.clear();
+      closeSetor();
+      document.getElementById('dashboard').classList.add('hidden');
+      document.getElementById('login').classList.remove('hidden');
+      document.getElementById("panduan").classList.add("hidden");
+    }
+
+    function openSetor(){
+      const user=localStorage.getItem('user');
+      if(!user)return showError("Login dulu sebelum setor Gmail!");
+      document.getElementById('modalSetor').classList.add('show');
+    }
+    function closeSetor(){
+      const m=document.getElementById('modalSetor');
+      m.classList.remove('show');
+      document.getElementById('gmail').value='';
+      document.getElementById('gmailPass').value='';
+      document.getElementById('statusSetor').textContent='';
+    }
+
+    async function kirimSetor() {
+      const email = document.getElementById("gmail").value.trim().toLowerCase();
+      const pass = document.getElementById("gmailPass").value.trim();
+      const status = document.getElementById("statusSetor");
+      const saved = JSON.parse(localStorage.getItem("user") || "{}");
+      const userId = saved.id;
+      const now = new Date();
+      const startOfDay = new Date(now);
+      startOfDay.setHours(0, 0, 0, 0);
+      const endOfDay = new Date(now);
+      endOfDay.setHours(23, 59, 59, 999);
+
+      const setorHariIni = await db.collection("emails")
+        .doc(String(userId))
+        .collection("gmail_list")
+        .where("createdAt", ">=", startOfDay)
+        .where("createdAt", "<=", endOfDay)
+        .get();
+
+      if (setorHariIni.size >= 80) {
+        return showError("Kamu sudah mencapai batas 80 Gmail hari ini! Coba lagi setelah 00.00 WIB.");
+      }
+      if (!email || !pass) return showError("Isi semua data Gmail dan Password!");
+      if (!userId) return showError("Login dulu sebelum setor Gmail!");
+
+      const gmailRegex = /^[a-zA-Z0-9._%+-]+@gmail\.com$/;
+        if (!gmailRegex.test(email)) return showError("Format email tidak valid (harus @gmail.com)!");
+
+      const bannedEmails = ["tanpa@gmail.com", "contoh@gmail.com", "test@gmail.com", "example@gmail.com"];
+        if (bannedEmails.includes(email)) return showError("Email ini tidak diterima, gunakan Gmail asli!");
+
+      const snap = await db.collection("emails").doc(String(userId)).collection("gmail_list")
+        .where("email", "==", email).limit(1).get();
+      if (!snap.empty) return showError("Email ini sudah pernah disetor!");
+
+      const lastSnap = await db.collection("emails").doc(String(userId)).collection("gmail_list")
+        .orderBy("createdAt", "desc").limit(1).get();
+      if (!lastSnap.empty) {
+        const lastEmail = lastSnap.docs[0].data().email;
+        const clean1 = email.replace(/[^a-zA-Z]/g, "");
+        const clean2 = lastEmail.replace(/[^a-zA-Z]/g, "");
+      if (clean1 === clean2) return showError("Email terlalu mirip dengan sebelumnya!");
+      }
+
+      status.textContent = "⏳ Mengirim data Gmail...";
+        try {
+          await db.collection("emails").doc(String(userId)).collection("gmail_list").add({
+            email, password: pass, converted: false,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        });
+
+      const pesan = `<blockquote>🙋‍♂️ Om Ada Yang Setor Nih\n📩 Detail Gmail Baru\n👤 User: ${saved.username_login || "-"}\n🆔 ID: ${userId}\n📧 Gmail: ${email}\n🔑 Password: ${pass}</blockquote>`;
+        await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ chat_id: OWNER_ID, text: pesan, parse_mode: "HTML" }),
+      });
+
+      const userRef = db.collection("users").doc(String(userId));
+        await userRef.update({
+          total_akun: firebase.firestore.FieldValue.increment(1),
+          emails_total: firebase.firestore.FieldValue.increment(1),
+          emails_unconverted: firebase.firestore.FieldValue.increment(1),
+      });
+
+      status.textContent = "🟢 Gmail berhasil disetor!";
+      setTimeout(closeSetor, 1500);
+      } catch (e) {
+        console.error(e);
+        status.textContent = "🔴 Gagal setor Gmail!";
+        }
+      }
+
+      window.onload = async () => {
+        document.getElementById('login').classList.remove('hidden');
+        document.getElementById('dashboard').classList.add('hidden');
+        document.getElementById('modalSetor').classList.remove('show');
+        const saved = localStorage.getItem('user');
+        if (!saved) return;
+        try {
+          const user = JSON.parse(saved);
+          const doc = await db.collection('users')
+            .where('username_login','==',user.username_login)
+            .where('password_login','==',user.password_login)
+            .limit(1).get();
+          if (!doc.empty) showDashboard(doc.docs[0].data());
+          else localStorage.clear();
+        } catch (e) {
+          console.error("Auto login error:", e);
+          localStorage.clear();
+        }
+      };
+    </script>
+  </body>
+</html>
