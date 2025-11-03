@@ -206,18 +206,18 @@
       <p id="statusSetor" style="font-size:13px;color:#9ca3af;margin-top:10px"></p>
     </div>
   </div>
-  
-  <div id="modalTutup">
-    <div class="modal-error-content">
-      <h3>🚫 Website Sedang Tutup</h3>
-      <p>Website sementara tidak menerima setor Gmail. Silakan coba lagi nanti.</p>
-    </div>
-  </div>
 
   <div id="modalError">
     <div class="modal-error-content">
       <h3>❌ Login Gagal</h3>
       <p>Username atau password salah!</p>
+    </div>
+  </div>
+  
+  <div id="modalTutup">
+    <div class="modal-error-content">
+      <h3>🚫 Website Sedang Tutup</h3>
+      <p>Website sementara tidak menerima setor Gmail. Silakan coba lagi nanti.</p>
     </div>
   </div>
   
@@ -287,13 +287,6 @@
     document.getElementById("withdraw").textContent = u.withdraw_count || 0;
     document.getElementById("panduan").classList.remove("hidden");
   });
-
-  // === Tampilkan popup website tutup ===
-  const modalTutup = document.getElementById('modalTutup');
-  modalTutup.classList.add('show');
-
-  // Nonaktifkan semua tombol agar user tidak bisa setor
-  document.querySelectorAll('button').forEach(btn => btn.disabled = true);
 }
     
     // === Pantau status website realtime ===
